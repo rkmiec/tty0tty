@@ -5,7 +5,7 @@
    ########################################################################
 
    Copyright (c) : 2013  Luis Claudio Gambôa Lopes
- 
+
     Based in Tiny TTY driver -  Copyright (C) 2002-2004 Greg Kroah-Hartman (greg@kroah.com)
 
    This program is free software; you can redistribute it and/or modify
@@ -56,13 +56,8 @@ module_param(pairs, short, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
 MODULE_PARM_DESC(pairs,
 		 "Number of pairs of devices to be created, maximum of 128");
 
-#if 0
-#define TTY0TTY_MAJOR		240	/* experimental range */
-#define TTY0TTY_MINOR		16
-#else
 #define TTY0TTY_MAJOR		0	/* dynamic allocation */
 #define TTY0TTY_MINOR		0
-#endif
 
 /* fake UART values */
 //out
@@ -90,7 +85,6 @@ struct tty0tty_serial {
 	struct serial_struct serial;
 	wait_queue_head_t wait;
 	struct async_icount icount;
-
 };
 
 static struct tty0tty_serial **tty0tty_table;	/* initially all NULL */
@@ -121,7 +115,6 @@ static int tty0tty_open(struct tty_struct *tty, struct file *file)
 		tty0tty->open_count = 0;
 
 		tty0tty_table[index] = tty0tty;
-
 	}
 
 	tport[index].tty = tty;
@@ -139,11 +132,10 @@ static int tty0tty_open(struct tty_struct *tty, struct file *file)
 
 //null modem connection
 
-	if ((mcr & MCR_RTS) == MCR_RTS) {
+	if (mcr & MCR_RTS)
 		msr |= MSR_CTS;
-	}
 
-	if ((mcr & MCR_DTR) == MCR_DTR) {
+	if (mcr & MCR_DTR) {
 		msr |= MSR_DSR;
 		msr |= MSR_CD;
 	}
@@ -172,31 +164,29 @@ static void do_close(struct tty0tty_serial *tty0tty)
 #ifdef SCULL_DEBUG
 	printk(KERN_DEBUG "%s - \n", __FUNCTION__);
 #endif
-	if ((tty0tty->tty->index % 2) == 0) {
-		if (tty0tty_table[tty0tty->tty->index + 1] != NULL)
-			if (tty0tty_table[tty0tty->tty->index + 1]->open_count >
-			    0)
-				tty0tty_table[tty0tty->tty->index + 1]->msr =
-				    msr;
-	} else {
+	if (tty0tty->tty->index % 2) {
 		if (tty0tty_table[tty0tty->tty->index - 1] != NULL)
 			if (tty0tty_table[tty0tty->tty->index - 1]->open_count >
 			    0)
 				tty0tty_table[tty0tty->tty->index - 1]->msr =
 				    msr;
+	} else {
+		if (tty0tty_table[tty0tty->tty->index + 1] != NULL)
+			if (tty0tty_table[tty0tty->tty->index + 1]->open_count >
+			    0)
+				tty0tty_table[tty0tty->tty->index + 1]->msr =
+				    msr;
 	}
 
 	down(&tty0tty->sem);
-	if (!tty0tty->open_count) {
-		/* port was never opened */
+
+        /* port was never opened */
+	if (!tty0tty->open_count)
 		goto exit;
-	}
 
 	--tty0tty->open_count;
 exit:
 	up(&tty0tty->sem);
-
-	return;
 }
 
 static void tty0tty_close(struct tty_struct *tty, struct file *file)
@@ -222,22 +212,22 @@ static int tty0tty_write(struct tty_struct *tty, const unsigned char *buffer,
 
 	down(&tty0tty->sem);
 
+	/* port was not opened */
 	if (!tty0tty->open_count)
-		/* port was not opened */
 		goto exit;
 
-	if ((tty0tty->tty->index % 2) == 0) {
-		if (tty0tty_table[tty0tty->tty->index + 1] != NULL)
-			if (tty0tty_table[tty0tty->tty->index + 1]->open_count >
-			    0)
-				ttyx =
-				    tty0tty_table[tty0tty->tty->index + 1]->tty;
-	} else {
+	if (tty0tty->tty->index % 2) {
 		if (tty0tty_table[tty0tty->tty->index - 1] != NULL)
 			if (tty0tty_table[tty0tty->tty->index - 1]->open_count >
 			    0)
 				ttyx =
 				    tty0tty_table[tty0tty->tty->index - 1]->tty;
+	} else {
+		if (tty0tty_table[tty0tty->tty->index + 1] != NULL)
+			if (tty0tty_table[tty0tty->tty->index + 1]->open_count >
+			    0)
+				ttyx =
+				    tty0tty_table[tty0tty->tty->index + 1]->tty;
 	}
 
 //        tty->low_latency=1;
@@ -268,10 +258,9 @@ static int tty0tty_write_room(struct tty_struct *tty)
 
 	down(&tty0tty->sem);
 
-	if (!tty0tty->open_count) {
-		/* port was not opened */
+	/* port was not opened */
+	if (!tty0tty->open_count)
 		goto exit;
-	}
 
 	/* calculate how much room is left in the device */
 	room = 255;
@@ -352,7 +341,7 @@ static void tty0tty_set_termios(struct tty_struct *tty,
 		printk(KERN_DEBUG " - RTS/CTS is disabled\n");
 
 	/* determine software flow control */
-	/* if we are implementing XON/XOFF, set the start and 
+	/* if we are implementing XON/XOFF, set the start and
 	 * stop character in the device */
 	if (I_IXOFF(tty) || I_IXON(tty)) {
 		unsigned char stop_char = STOP_CHAR(tty);
@@ -380,7 +369,6 @@ static void tty0tty_set_termios(struct tty_struct *tty,
 #endif
 }
 
-//static int tty0tty_tiocmget(struct tty_struct *tty, struct file *file)
 static int tty0tty_tiocmget(struct tty_struct *tty)
 {
 	struct tty0tty_serial *tty0tty = tty->driver_data;
@@ -400,7 +388,6 @@ static int tty0tty_tiocmget(struct tty_struct *tty)
 	return result;
 }
 
-//static int tty0tty_tiocmset(struct tty_struct *tty, struct file *file,
 static int tty0tty_tiocmset(struct tty_struct *tty,
 			    unsigned int set, unsigned int clear)
 {
@@ -412,21 +399,21 @@ static int tty0tty_tiocmset(struct tty_struct *tty,
 	printk(KERN_DEBUG "%s - \n", __FUNCTION__);
 #endif
 
-	if ((tty0tty->tty->index % 2) == 0) {
-		if (tty0tty_table[tty0tty->tty->index + 1] != NULL)
-			if (tty0tty_table[tty0tty->tty->index + 1]->open_count >
-			    0)
-				msr =
-				    tty0tty_table[tty0tty->tty->index + 1]->msr;
-	} else {
+	if (tty0tty->tty->index % 2) {
 		if (tty0tty_table[tty0tty->tty->index - 1] != NULL)
 			if (tty0tty_table[tty0tty->tty->index - 1]->open_count >
 			    0)
 				msr =
 				    tty0tty_table[tty0tty->tty->index - 1]->msr;
+	} else {
+		if (tty0tty_table[tty0tty->tty->index + 1] != NULL)
+			if (tty0tty_table[tty0tty->tty->index + 1]->open_count >
+			    0)
+				msr =
+				    tty0tty_table[tty0tty->tty->index + 1]->msr;
 	}
 
-//null modem connection
+	//null modem connection
 
 	if (set & TIOCM_RTS) {
 		mcr |= MCR_RTS;
@@ -453,17 +440,17 @@ static int tty0tty_tiocmset(struct tty_struct *tty,
 	/* set the new MCR value in the device */
 	tty0tty->mcr = mcr;
 
-	if ((tty0tty->tty->index % 2) == 0) {
-		if (tty0tty_table[tty0tty->tty->index + 1] != NULL)
-			if (tty0tty_table[tty0tty->tty->index + 1]->open_count >
-			    0)
-				tty0tty_table[tty0tty->tty->index + 1]->msr =
-				    msr;
-	} else {
+	if (tty0tty->tty->index % 2) {
 		if (tty0tty_table[tty0tty->tty->index - 1] != NULL)
 			if (tty0tty_table[tty0tty->tty->index - 1]->open_count >
 			    0)
 				tty0tty_table[tty0tty->tty->index - 1]->msr =
+				    msr;
+	} else {
+		if (tty0tty_table[tty0tty->tty->index + 1] != NULL)
+			if (tty0tty_table[tty0tty->tty->index + 1]->open_count >
+			    0)
+				tty0tty_table[tty0tty->tty->index + 1]->msr =
 				    msr;
 	}
 	return 0;
@@ -542,7 +529,6 @@ static int tty0tty_ioctl_tiocmiwait(struct tty_struct *tty,
 			}
 			cprev = cnow;
 		}
-
 	}
 	return -ENOIOCTLCMD;
 }
@@ -621,9 +607,9 @@ static int __init tty0tty_init(void)
 	tty0tty_table =
 	    kmalloc(2 * pairs * sizeof(struct tty0tty_serial *), GFP_KERNEL);
 
-	for (i = 0; i < 2 * pairs; i++) {
+	for (i = 0; i < 2 * pairs; i++)
 		tty0tty_table[i] = NULL;
-	}
+
 #ifdef SCULL_DEBUG
 	printk(KERN_DEBUG "%s - \n", __FUNCTION__);
 #endif
