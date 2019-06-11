@@ -599,10 +599,7 @@ static int __init tty0tty_init(void)
 {
 	int retval;
 	int i;
-	if (pairs > 128)
-		pairs = 128;
-	if (pairs < 1)
-		pairs = 1;
+	pairs = clamp_val(pairs, 1, 128);
 	tport = kmalloc(2 * pairs * sizeof(struct tty_port), GFP_KERNEL);
 	tty0tty_table =
 	    kmalloc(2 * pairs * sizeof(struct tty0tty_serial *), GFP_KERNEL);
