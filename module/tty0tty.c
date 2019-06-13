@@ -96,9 +96,8 @@ static int tty0tty_open(struct tty_struct *tty, struct file *file)
 	int msr = 0;
 	int mcr = 0;
 
-#ifdef SCULL_DEBUG
-	printk(KERN_DEBUG "%s - \n", __FUNCTION__);
-#endif
+	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
+
 	/* initialize the pointer in case something fails */
 	tty->driver_data = NULL;
 
@@ -107,7 +106,7 @@ static int tty0tty_open(struct tty_struct *tty, struct file *file)
 	tty0tty = tty0tty_table[index];
 	if (tty0tty == NULL) {
 		/* first time accessing this device, let's create it */
-		tty0tty = kmalloc(sizeof(*tty0tty), GFP_KERNEL);
+		tty0tty = kzalloc(sizeof(*tty0tty), GFP_KERNEL);
 		if (!tty0tty)
 			return -ENOMEM;
 
@@ -161,9 +160,8 @@ static void do_close(struct tty0tty_serial *tty0tty)
 {
 	unsigned int msr = 0;
 
-#ifdef SCULL_DEBUG
-	printk(KERN_DEBUG "%s - \n", __FUNCTION__);
-#endif
+	dev_dbg(tty0tty->tty->dev, "%s - \n", __FUNCTION__);
+
 	if (tty0tty->tty->index % 2) {
 		if (tty0tty_table[tty0tty->tty->index - 1] != NULL)
 			if (tty0tty_table[tty0tty->tty->index - 1]->open_count >
@@ -180,7 +178,7 @@ static void do_close(struct tty0tty_serial *tty0tty)
 
 	down(&tty0tty->sem);
 
-        /* port was never opened */
+	/* port was never opened */
 	if (!tty0tty->open_count)
 		goto exit;
 
@@ -193,9 +191,7 @@ static void tty0tty_close(struct tty_struct *tty, struct file *file)
 {
 	struct tty0tty_serial *tty0tty = tty->driver_data;
 
-#ifdef SCULL_DEBUG
-	printk(KERN_DEBUG "%s - \n", __FUNCTION__);
-#endif
+	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
 	if (tty0tty)
 		do_close(tty0tty);
 }
@@ -278,9 +274,7 @@ static void tty0tty_set_termios(struct tty_struct *tty,
 	unsigned int cflag;
 	unsigned int iflag;
 
-#ifdef SCULL_DEBUG
-	printk(KERN_DEBUG "%s - \n", __FUNCTION__);
-#endif
+	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
 
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
 	cflag = tty->termios.c_cflag;
@@ -295,50 +289,47 @@ static void tty0tty_set_termios(struct tty_struct *tty,
 		if ((cflag == old_termios->c_cflag) &&
 		    (RELEVANT_IFLAG(iflag) ==
 		     RELEVANT_IFLAG(old_termios->c_iflag))) {
-#ifdef SCULL_DEBUG
-			printk(KERN_DEBUG " - nothing to change...\n");
-#endif
+			dev_dbg(tty->dev, " - nothing to change...\n");
 			return;
 		}
 	}
-#ifdef SCULL_DEBUG
 	/* get the byte size */
 	switch (cflag & CSIZE) {
 	case CS5:
-		printk(KERN_DEBUG " - data bits = 5\n");
+		dev_dbg(tty->dev, " - data bits = 5\n");
 		break;
 	case CS6:
-		printk(KERN_DEBUG " - data bits = 6\n");
+		dev_dbg(tty->dev, " - data bits = 6\n");
 		break;
 	case CS7:
-		printk(KERN_DEBUG " - data bits = 7\n");
+		dev_dbg(tty->dev, " - data bits = 7\n");
 		break;
 	default:
 	case CS8:
-		printk(KERN_DEBUG " - data bits = 8\n");
+		dev_dbg(tty->dev, " - data bits = 8\n");
 		break;
 	}
 
 	/* determine the parity */
 	if (cflag & PARENB)
 		if (cflag & PARODD)
-			printk(KERN_DEBUG " - parity = odd\n");
+			dev_dbg(tty->dev, " - parity = odd\n");
 		else
-			printk(KERN_DEBUG " - parity = even\n");
+			dev_dbg(tty->dev, " - parity = even\n");
 	else
-		printk(KERN_DEBUG " - parity = none\n");
+		dev_dbg(tty->dev, " - parity = none\n");
 
 	/* figure out the stop bits requested */
 	if (cflag & CSTOPB)
-		printk(KERN_DEBUG " - stop bits = 2\n");
+		dev_dbg(tty->dev, " - stop bits = 2\n");
 	else
-		printk(KERN_DEBUG " - stop bits = 1\n");
+		dev_dbg(tty->dev, " - stop bits = 1\n");
 
 	/* figure out the hardware flow control settings */
 	if (cflag & CRTSCTS)
-		printk(KERN_DEBUG " - RTS/CTS is enabled\n");
+		dev_dbg(tty->dev, " - RTS/CTS is enabled\n");
 	else
-		printk(KERN_DEBUG " - RTS/CTS is disabled\n");
+		dev_dbg(tty->dev, " - RTS/CTS is disabled\n");
 
 	/* determine software flow control */
 	/* if we are implementing XON/XOFF, set the start and
@@ -349,24 +340,23 @@ static void tty0tty_set_termios(struct tty_struct *tty,
 
 		/* if we are implementing INBOUND XON/XOFF */
 		if (I_IXOFF(tty))
-			printk(KERN_DEBUG " - INBOUND XON/XOFF is enabled, "
+			dev_dbg(tty->dev, " - INBOUND XON/XOFF is enabled, "
 			       "XON = %2x, XOFF = %2x\n", start_char,
 			       stop_char);
 		else
-			printk(KERN_DEBUG " - INBOUND XON/XOFF is disabled\n");
+			dev_dbg(tty->dev, " - INBOUND XON/XOFF is disabled\n");
 
 		/* if we are implementing OUTBOUND XON/XOFF */
 		if (I_IXON(tty))
-			printk(KERN_DEBUG " - OUTBOUND XON/XOFF is enabled, "
+			dev_dbg(tty->dev, " - OUTBOUND XON/XOFF is enabled, "
 			       "XON = %2x, XOFF = %2x\n", start_char,
 			       stop_char);
 		else
-			printk(KERN_DEBUG " - OUTBOUND XON/XOFF is disabled\n");
+			dev_dbg(tty->dev, " - OUTBOUND XON/XOFF is disabled\n");
 	}
 
 	/* get the baud rate wanted */
-	printk(KERN_DEBUG " - baud rate = %d\n", tty_get_baud_rate(tty));
-#endif
+	dev_dbg(tty->dev, " - baud rate = %d\n", tty_get_baud_rate(tty));
 }
 
 static int tty0tty_tiocmget(struct tty_struct *tty)
@@ -395,9 +385,7 @@ static int tty0tty_tiocmset(struct tty_struct *tty,
 	unsigned int mcr = tty0tty->mcr;
 	unsigned int msr = 0;
 
-#ifdef SCULL_DEBUG
-	printk(KERN_DEBUG "%s - \n", __FUNCTION__);
-#endif
+	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
 
 	if (tty0tty->tty->index % 2) {
 		if (tty0tty_table[tty0tty->tty->index - 1] != NULL)
@@ -461,9 +449,7 @@ static int tty0tty_ioctl_tiocgserial(struct tty_struct *tty,
 {
 	struct tty0tty_serial *tty0tty = tty->driver_data;
 
-#ifdef SCULL_DEBUG
-	printk(KERN_DEBUG "%s - \n", __FUNCTION__);
-#endif
+	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
 	if (cmd == TIOCGSERIAL) {
 		struct serial_struct tmp;
 
@@ -498,9 +484,8 @@ static int tty0tty_ioctl_tiocmiwait(struct tty_struct *tty,
 {
 	struct tty0tty_serial *tty0tty = tty->driver_data;
 
-#ifdef SCULL_DEBUG
-	printk(KERN_DEBUG "%s - \n", __FUNCTION__);
-#endif
+	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
+
 	if (cmd == TIOCMIWAIT) {
 		DECLARE_WAITQUEUE(wait, current);
 		struct async_icount cnow;
@@ -538,9 +523,8 @@ static int tty0tty_ioctl_tiocgicount(struct tty_struct *tty,
 {
 	struct tty0tty_serial *tty0tty = tty->driver_data;
 
-#ifdef SCULL_DEBUG
-	printk(KERN_DEBUG "%s - \n", __FUNCTION__);
-#endif
+	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
+
 	if (cmd == TIOCGICOUNT) {
 		struct async_icount cnow = tty0tty->icount;
 		struct serial_icounter_struct icount;
@@ -567,9 +551,8 @@ static int tty0tty_ioctl_tiocgicount(struct tty_struct *tty,
 static int tty0tty_ioctl(struct tty_struct *tty,
 			 unsigned int cmd, unsigned long arg)
 {
-#ifdef SCULL_DEBUG
-	printk(KERN_DEBUG "%s - %04X \n", __FUNCTION__, cmd);
-#endif
+	dev_dbg(tty->dev, "%s - %04X \n", __FUNCTION__, cmd);
+
 	switch (cmd) {
 	case TIOCGSERIAL:
 		return tty0tty_ioctl_tiocgserial(tty, cmd, arg);
@@ -607,9 +590,8 @@ static int __init tty0tty_init(void)
 	for (i = 0; i < 2 * pairs; i++)
 		tty0tty_table[i] = NULL;
 
-#ifdef SCULL_DEBUG
-	printk(KERN_DEBUG "%s - \n", __FUNCTION__);
-#endif
+	pr_debug("%s - \n", __FUNCTION__);
+
 	/* allocate the tty driver */
 	tty0tty_tty_driver = alloc_tty_driver(2 * pairs);
 	if (!tty0tty_tty_driver)
@@ -646,12 +628,12 @@ static int __init tty0tty_init(void)
 
 	retval = tty_register_driver(tty0tty_tty_driver);
 	if (retval) {
-		printk(KERN_ERR "failed to register tty0tty tty driver");
+		pr_err("failed to register tty0tty tty driver");
 		put_tty_driver(tty0tty_tty_driver);
 		return retval;
 	}
 
-	printk(KERN_INFO DRIVER_DESC " " DRIVER_VERSION "\n");
+	pr_info(DRIVER_DESC " " DRIVER_VERSION "\n");
 	return retval;
 }
 
@@ -660,9 +642,8 @@ static void __exit tty0tty_exit(void)
 	struct tty0tty_serial *tty0tty;
 	int i;
 
-#ifdef SCULL_DEBUG
-	printk(KERN_DEBUG "%s - \n", __FUNCTION__);
-#endif
+	pr_debug("%s - \n", __FUNCTION__);
+
 	for (i = 0; i < 2 * pairs; ++i) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
 		tty_port_destroy(&tport[i]);
