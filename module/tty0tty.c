@@ -52,7 +52,7 @@ MODULE_DESCRIPTION(DRIVER_DESC);
 MODULE_LICENSE("GPL");
 
 short pairs = 4;		//Default number of pairs of devices
-module_param(pairs, short, S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP);
+module_param(pairs, short, S_IRUSR | S_IRGRP);
 MODULE_PARM_DESC(pairs,
 		 "Number of pairs of devices to be created, maximum of 128");
 
