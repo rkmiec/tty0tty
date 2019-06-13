@@ -1,29 +1,12 @@
-/* ########################################################################
-
-   tty0tty - linux null modem emulator (module)  for kernel > 3.8
-
-   ########################################################################
-
-   Copyright (c) : 2013  Luis Claudio Gambôa Lopes
-
-    Based in Tiny TTY driver -  Copyright (C) 2002-2004 Greg Kroah-Hartman (greg@kroah.com)
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; if not, write to the Free Software
-   Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
-
-   For e-mail suggestions :  lcgamboa@yahoo.com
-   ######################################################################## */
+// SPDX-License-Identifier: (GPL-2.0+ OR BSD-3-Clause)
+/*
+ * tty0tty - linux null modem emulator (module) for kernel > 3.8
+ *
+ * Copyright (c) : 2013  Luis Claudio Gambôa Lopes
+ *
+ *  Based on Tiny TTY driver -
+ *         Copyright (C) 2002-2004 Greg Kroah-Hartman (greg@kroah.com)
+ */
 
 #include <linux/kernel.h>
 #include <linux/errno.h>
@@ -40,19 +23,13 @@
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(4, 11, 0)
 #include <linux/sched/signal.h>
 #endif
-#include <asm/uaccess.h>
+#include <linux/uaccess.h>
 
-#define DRIVER_VERSION "v1.2"
-#define DRIVER_AUTHOR "Luis Claudio Gamboa Lopes <lcgamboa@yahoo.com>"
-#define DRIVER_DESC "tty0tty null modem driver"
+#define DRIVER_VERSION "v1.3"
 
-/* Module information */
-MODULE_AUTHOR(DRIVER_AUTHOR);
-MODULE_DESCRIPTION(DRIVER_DESC);
-MODULE_LICENSE("GPL");
-
-short pairs = 4;		//Default number of pairs of devices
-module_param(pairs, short, S_IRUSR | S_IRGRP);
+//Default number of pairs of devices
+short pairs = 4;
+module_param(pairs, short, 0440);
 MODULE_PARM_DESC(pairs,
 		 "Number of pairs of devices to be created, maximum of 128");
 
@@ -112,7 +89,7 @@ static int tty0tty_open(struct tty_struct *tty, struct file *file)
 	int mcr = 0;
 	struct tty0tty_serial *tts;
 
-	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
+	dev_dbg(tty->dev, "%s -\n", __func__);
 
 	/* initialize the pointer in case something fails */
 	tty->driver_data = NULL;
@@ -172,7 +149,7 @@ static void do_close(struct tty0tty_serial *tty0tty)
 
 	struct tty0tty_serial *tts = get_counterpart(tty0tty);
 
-	dev_dbg(tty0tty->tty->dev, "%s - \n", __FUNCTION__);
+	dev_dbg(tty0tty->tty->dev, "%s -\n", __func__);
 
 	if (tts)
 		tts->msr = msr;
@@ -192,7 +169,7 @@ static void tty0tty_close(struct tty_struct *tty, struct file *file)
 {
 	struct tty0tty_serial *tty0tty = tty->driver_data;
 
-	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
+	dev_dbg(tty->dev, "%s -\n", __func__);
 	if (tty0tty)
 		do_close(tty0tty);
 }
@@ -222,7 +199,7 @@ static int tty0tty_write(struct tty_struct *tty, const unsigned char *buffer,
 	//tty->low_latency=1;
 
 	if (ttyx != NULL) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 8, 0)
 		tty_insert_flip_string(ttyx->port, buffer, count);
 		tty_flip_buffer_push(ttyx->port);
 #else
@@ -267,9 +244,9 @@ static void tty0tty_set_termios(struct tty_struct *tty,
 	unsigned int cflag;
 	unsigned int iflag;
 
-	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
+	dev_dbg(tty->dev, "%s -\n", __func__);
 
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
 	cflag = tty->termios.c_cflag;
 	iflag = tty->termios.c_iflag;
 #else
@@ -326,24 +303,23 @@ static void tty0tty_set_termios(struct tty_struct *tty,
 
 	/* determine software flow control */
 	/* if we are implementing XON/XOFF, set the start and
-	 * stop character in the device */
+	 * stop character in the device
+	 */
 	if (I_IXOFF(tty) || I_IXON(tty)) {
 		unsigned char stop_char = STOP_CHAR(tty);
 		unsigned char start_char = START_CHAR(tty);
 
 		/* if we are implementing INBOUND XON/XOFF */
 		if (I_IXOFF(tty))
-			dev_dbg(tty->dev, " - INBOUND XON/XOFF is enabled, "
-			       "XON = %2x, XOFF = %2x\n", start_char,
-			       stop_char);
+			dev_dbg(tty->dev, " - INBOUND XON/XOFF is enabled, XON = %2x, XOFF = %2x\n",
+					start_char, stop_char);
 		else
 			dev_dbg(tty->dev, " - INBOUND XON/XOFF is disabled\n");
 
 		/* if we are implementing OUTBOUND XON/XOFF */
 		if (I_IXON(tty))
-			dev_dbg(tty->dev, " - OUTBOUND XON/XOFF is enabled, "
-			       "XON = %2x, XOFF = %2x\n", start_char,
-			       stop_char);
+			dev_dbg(tty->dev, " - OUTBOUND XON/XOFF is enabled, XON = %2x, XOFF = %2x\n",
+					start_char, stop_char);
 		else
 			dev_dbg(tty->dev, " - OUTBOUND XON/XOFF is disabled\n");
 	}
@@ -377,12 +353,12 @@ static int tty0tty_tiocmset(struct tty_struct *tty,
 	struct tty0tty_serial *tty0tty = tty->driver_data;
 	unsigned int mcr = tty0tty->mcr;
 	unsigned int msr = 0;
-
 	struct tty0tty_serial *tts = get_counterpart(tty0tty);
+
 	if (tts)
 		msr = tts->msr;
 
-	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
+	dev_dbg(tty->dev, "%s -\n", __func__);
 
 	//null modem connection
 
@@ -422,7 +398,7 @@ static int tty0tty_ioctl_tiocgserial(struct tty_struct *tty,
 {
 	struct tty0tty_serial *tty0tty = tty->driver_data;
 
-	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
+	dev_dbg(tty->dev, "%s -\n", __func__);
 	if (cmd == TIOCGSERIAL) {
 		struct serial_struct tmp;
 
@@ -457,7 +433,7 @@ static int tty0tty_ioctl_tiocmiwait(struct tty_struct *tty,
 {
 	struct tty0tty_serial *tty0tty = tty->driver_data;
 
-	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
+	dev_dbg(tty->dev, "%s -\n", __func__);
 
 	if (cmd == TIOCMIWAIT) {
 		DECLARE_WAITQUEUE(wait, current);
@@ -496,7 +472,7 @@ static int tty0tty_ioctl_tiocgicount(struct tty_struct *tty,
 {
 	struct tty0tty_serial *tty0tty = tty->driver_data;
 
-	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
+	dev_dbg(tty->dev, "%s -\n", __func__);
 
 	if (cmd == TIOCGICOUNT) {
 		struct async_icount cnow = tty0tty->icount;
@@ -524,7 +500,7 @@ static int tty0tty_ioctl_tiocgicount(struct tty_struct *tty,
 static int tty0tty_ioctl(struct tty_struct *tty,
 			 unsigned int cmd, unsigned long arg)
 {
-	dev_dbg(tty->dev, "%s - %04X \n", __FUNCTION__, cmd);
+	dev_dbg(tty->dev, "%s - %04X\n", __func__, cmd);
 
 	switch (cmd) {
 	case TIOCGSERIAL:
@@ -538,7 +514,7 @@ static int tty0tty_ioctl(struct tty_struct *tty,
 	return -ENOIOCTLCMD;
 }
 
-static struct tty_operations serial_ops = {
+static const struct tty_operations serial_ops = {
 	.open = tty0tty_open,
 	.close = tty0tty_close,
 	.write = tty0tty_write,
@@ -555,6 +531,7 @@ static int __init tty0tty_init(void)
 {
 	int retval;
 	int i;
+
 	pairs = clamp_val(pairs, 1, 128);
 	tport = kmalloc(2 * pairs * sizeof(struct tty_port), GFP_KERNEL);
 	tty0tty_table =
@@ -563,7 +540,7 @@ static int __init tty0tty_init(void)
 	for (i = 0; i < 2 * pairs; i++)
 		tty0tty_table[i] = NULL;
 
-	pr_debug("%s - \n", __FUNCTION__);
+	pr_debug("%s -\n", __func__);
 
 	/* allocate the tty driver */
 	tty0tty_tty_driver = alloc_tty_driver(2 * pairs);
@@ -594,7 +571,7 @@ static int __init tty0tty_init(void)
 
 	for (i = 0; i < 2 * pairs; i++) {
 		tty_port_init(&tport[i]);
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
 		tty_port_link_device(&tport[i], tty0tty_tty_driver, i);
 #endif
 	}
@@ -615,10 +592,10 @@ static void __exit tty0tty_exit(void)
 	struct tty0tty_serial *tty0tty;
 	int i;
 
-	pr_debug("%s - \n", __FUNCTION__);
+	pr_debug("%s -\n", __func__);
 
 	for (i = 0; i < 2 * pairs; ++i) {
-#if LINUX_VERSION_CODE >= KERNEL_VERSION(3,7,0)
+#if LINUX_VERSION_CODE >= KERNEL_VERSION(3, 7, 0)
 		tty_port_destroy(&tport[i]);
 #endif
 		tty_unregister_device(tty0tty_tty_driver, i);
@@ -644,3 +621,8 @@ static void __exit tty0tty_exit(void)
 
 module_init(tty0tty_init);
 module_exit(tty0tty_exit);
+
+MODULE_AUTHOR("Luis Claudio Gamboa Lopes <lcgamboa@yahoo.com>");
+MODULE_DESCRIPTION("tty0tty null modem driver");
+MODULE_LICENSE("GPL");
+MODULE_VERSION(DRIVER_VERSION);
