@@ -89,12 +89,28 @@ struct tty0tty_serial {
 
 static struct tty0tty_serial **tty0tty_table;	/* initially all NULL */
 
+static struct tty0tty_serial *get_counterpart(struct tty0tty_serial *tts)
+{
+	int idx = tts->tty->index;
+	int counterpart_idx = idx + 1;
+
+	if (idx % 2)
+		counterpart_idx = idx - 1;
+
+	if (tty0tty_table[counterpart_idx] &&
+				tty0tty_table[counterpart_idx]->open_count > 0)
+		return tty0tty_table[counterpart_idx];
+
+	return NULL;
+}
+
 static int tty0tty_open(struct tty_struct *tty, struct file *file)
 {
 	struct tty0tty_serial *tty0tty;
 	int index;
 	int msr = 0;
 	int mcr = 0;
+	struct tty0tty_serial *tts;
 
 	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
 
@@ -119,17 +135,11 @@ static int tty0tty_open(struct tty_struct *tty, struct file *file)
 	tport[index].tty = tty;
 	tty->port = &tport[index];
 
-	if ((index % 2) == 0) {
-		if (tty0tty_table[index + 1] != NULL)
-			if (tty0tty_table[index + 1]->open_count > 0)
-				mcr = tty0tty_table[index + 1]->mcr;
-	} else {
-		if (tty0tty_table[index - 1] != NULL)
-			if (tty0tty_table[index - 1]->open_count > 0)
-				mcr = tty0tty_table[index - 1]->mcr;
-	}
+	tts = get_counterpart(tty0tty);
+	if (tts)
+		mcr = tts->mcr;
 
-//null modem connection
+	//null modem connection
 
 	if (mcr & MCR_RTS)
 		msr |= MSR_CTS;
@@ -160,21 +170,12 @@ static void do_close(struct tty0tty_serial *tty0tty)
 {
 	unsigned int msr = 0;
 
+	struct tty0tty_serial *tts = get_counterpart(tty0tty);
+
 	dev_dbg(tty0tty->tty->dev, "%s - \n", __FUNCTION__);
 
-	if (tty0tty->tty->index % 2) {
-		if (tty0tty_table[tty0tty->tty->index - 1] != NULL)
-			if (tty0tty_table[tty0tty->tty->index - 1]->open_count >
-			    0)
-				tty0tty_table[tty0tty->tty->index - 1]->msr =
-				    msr;
-	} else {
-		if (tty0tty_table[tty0tty->tty->index + 1] != NULL)
-			if (tty0tty_table[tty0tty->tty->index + 1]->open_count >
-			    0)
-				tty0tty_table[tty0tty->tty->index + 1]->msr =
-				    msr;
-	}
+	if (tts)
+		tts->msr = msr;
 
 	down(&tty0tty->sem);
 
@@ -202,6 +203,7 @@ static int tty0tty_write(struct tty_struct *tty, const unsigned char *buffer,
 	struct tty0tty_serial *tty0tty = tty->driver_data;
 	int retval = -EINVAL;
 	struct tty_struct *ttyx = NULL;
+	struct tty0tty_serial *tts;
 
 	if (!tty0tty)
 		return -ENODEV;
@@ -212,21 +214,12 @@ static int tty0tty_write(struct tty_struct *tty, const unsigned char *buffer,
 	if (!tty0tty->open_count)
 		goto exit;
 
-	if (tty0tty->tty->index % 2) {
-		if (tty0tty_table[tty0tty->tty->index - 1] != NULL)
-			if (tty0tty_table[tty0tty->tty->index - 1]->open_count >
-			    0)
-				ttyx =
-				    tty0tty_table[tty0tty->tty->index - 1]->tty;
-	} else {
-		if (tty0tty_table[tty0tty->tty->index + 1] != NULL)
-			if (tty0tty_table[tty0tty->tty->index + 1]->open_count >
-			    0)
-				ttyx =
-				    tty0tty_table[tty0tty->tty->index + 1]->tty;
-	}
+	tts = get_counterpart(tty0tty);
 
-//        tty->low_latency=1;
+	if (tts)
+		ttyx = tts->tty;
+
+	//tty->low_latency=1;
 
 	if (ttyx != NULL) {
 #if LINUX_VERSION_CODE >= KERNEL_VERSION(3,8,0)
@@ -385,21 +378,11 @@ static int tty0tty_tiocmset(struct tty_struct *tty,
 	unsigned int mcr = tty0tty->mcr;
 	unsigned int msr = 0;
 
-	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
+	struct tty0tty_serial *tts = get_counterpart(tty0tty);
+	if (tts)
+		msr = tts->msr;
 
-	if (tty0tty->tty->index % 2) {
-		if (tty0tty_table[tty0tty->tty->index - 1] != NULL)
-			if (tty0tty_table[tty0tty->tty->index - 1]->open_count >
-			    0)
-				msr =
-				    tty0tty_table[tty0tty->tty->index - 1]->msr;
-	} else {
-		if (tty0tty_table[tty0tty->tty->index + 1] != NULL)
-			if (tty0tty_table[tty0tty->tty->index + 1]->open_count >
-			    0)
-				msr =
-				    tty0tty_table[tty0tty->tty->index + 1]->msr;
-	}
+	dev_dbg(tty->dev, "%s - \n", __FUNCTION__);
 
 	//null modem connection
 
@@ -428,19 +411,9 @@ static int tty0tty_tiocmset(struct tty_struct *tty,
 	/* set the new MCR value in the device */
 	tty0tty->mcr = mcr;
 
-	if (tty0tty->tty->index % 2) {
-		if (tty0tty_table[tty0tty->tty->index - 1] != NULL)
-			if (tty0tty_table[tty0tty->tty->index - 1]->open_count >
-			    0)
-				tty0tty_table[tty0tty->tty->index - 1]->msr =
-				    msr;
-	} else {
-		if (tty0tty_table[tty0tty->tty->index + 1] != NULL)
-			if (tty0tty_table[tty0tty->tty->index + 1]->open_count >
-			    0)
-				tty0tty_table[tty0tty->tty->index + 1]->msr =
-				    msr;
-	}
+	if (tts)
+		tts->msr = msr;
+
 	return 0;
 }
 
